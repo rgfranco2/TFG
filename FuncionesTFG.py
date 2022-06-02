@@ -19,7 +19,7 @@ import scipy.io as mat
 factor_escala=0.25
 
 
-def obtencion_imagenesYfechas(nombre='2022-05-29'):
+def obtencion_imagenesYfechas(nombre='2022-06-01_18_12'):
     '''
     print('Fecha o nombre imagen a analizar')
     nombre=input()
@@ -41,7 +41,7 @@ def obtencion_imagenesYfechas(nombre='2022-05-29'):
         dates.append(fecha)
         dates_formato.append(date_formato)
         dates_fichero.append(date_fichero)
-    return imagenes_str,dates,dates_fichero,dates_formato
+    return imagenes_str,dates, dates_formato,dates_fichero
 
 
 def obtencion_angulos (date, posicion):
@@ -125,16 +125,16 @@ def centroide_sol(imagen):
             if area_actual >= area:
                 area = area_actual
                 contorno_max = i
-
+            
     # Cálculo del perímetro del sol y de su circularidad (c)
         perimetro = cv2.arcLength(contorno_max, True)
         if perimetro > 0:
             c = 4 * np.pi * area / perimetro**2
         else:
-            return 0.0
+            return 0.0,1
     else: #No se ha detectado el sol
-        return 0.0
-    
+        return 0.0,1
+    print('c: ',c)
     #Se asume que si hay una circularidad alta sí que se ha detectado el Sol de forma clara
     #print(c)
     if c>0.4:
@@ -150,25 +150,27 @@ def centroide_sol(imagen):
     if (momentos['m00']>0):# & (moments['m00']>0):
         centroide = (int(momentos['m10']/momentos['m00']), int(momentos['m01']/momentos['m00']))#(cx,cy)
     else: #No se ha detectado el sol
-        return 0.0
-     
+        return 0.0,1
+    #centroide[0]=centroide[0]*factor_escala
+    #centroide[1]=centroide[1]*factor_escala
     return centroide,sol_cubierto
 '''
 def almacena_centroide():
     
     return centroide
 '''
-def quitar_pixeles_saturados(imagen):
+def quitar_pixeles_saturados(imagen,centro_sol):
     
     #Recibe imagen en formato foto
     ##Lo hace con el centroide pero si no detecta el sol pasarle la aproximación!!!!
-    centroide,sol_cubierto=centroide_sol(imagen)
+    ##centroide,sol_cubierto=centroide_sol(imagen)
     #Máscara para quitar los píxeles saturados alrededor del sol
-    mascara_ang=mascara_angulos(imagen,2.5,7,centroide)
+    mascara_ang=mascara_angulos(imagen,2.5,7,centro_sol)
+    
     imagen_mascara_angulos=cv2.bitwise_and(imagen,imagen, mask=mascara_ang)
     
     #Máscara para sacar el valor medio a sustituir en los píxeles quitados
-    mascara_calculo=mascara_angulos(imagen,7,8.5,centroide)
+    mascara_calculo=mascara_angulos(imagen,7,8.5,centro_sol)
     imagen_calculos=cv2.bitwise_and(imagen,imagen, mask=mascara_calculo)
     
     #Cálculo media brillo en el exterior de los píxeles saturados
@@ -214,12 +216,12 @@ def quitar_pixeles_saturados(imagen):
     #Sustituyo los valores en la imagen original           
     for (fila_s,columna_s,valor_s) in zip(filas_sustituir,columnas_sustituir,valor_sustituir):
         imagen[fila_s,columna_s]=valor_s
-    return imagen,centroide
+    return imagen
     
-def mascara_sol(imagen,zenith,azimuth,centroide):
+def mascara_sol(imagen,zenith,azimuth,centro_sol):
     #Recibe imagen en formarto foto
     radio_sol,px,py=world2image(2.5,azimuth)
-    cv2.circle(imagen,centroide,round(radio_sol), (0, 0, 0), -1)
+    cv2.circle(imagen,centro_sol,round(radio_sol), (0, 0, 0), -1)
     return imagen   
 '''
 def adjust_gamma(image, gamma=1):
@@ -258,148 +260,73 @@ def mascara_angulos(imagen,angulo_ini=0,angulo_fin=90,centroide=0,inclinacion_ze
     cv2.circle(imagen_mascara, centro_inclinacion, round(r_fin), color=(255,255,255), thickness=-1)
     cv2.circle(imagen_mascara, centro_inclinacion,round( r_ini), color=(0,0,0), thickness=-1)
     return imagen_mascara
-'''
-def busquedaAutomaticaParametros():
-    
-    resultado=pd.Series([imagenes])
-    EXIs=[]
-    EXAs=[]
-    EXPs=[]
-    NOIs =[]
-    AVBs=[]
-    GNGs =[]
-    GNRs =[]
-    GNBs =[]
-    GN2s =[]
-    CCGs =[]
-    CCBs =[]
-    CCRs =[]
-    CC2s =[]
-    LXRs =[]
-    valores=[]
-    valores_G=[]
-    valores_R=[]
-    valores_B=[]
-    valores_RGB=[]
-    valores_pir=[]
-    valores_G_pir=[]
-    valores_R_pir=[]
-    valores_B_pir=[]
-    valores_RGB_pir=[]
 
-    valores_comp=[]
-    valores_piranometro=[]
-
-    for imagen,date_fichero,date_formato in zip(imagenes,dates_fichero,dates_formato):
-        
-        #Lectura parámetros imágenes
-        f = open (imagen,mode='rb')
-        mensaje=f.read(1434) ##lee hasta los parámetros de los sensores
-        mensaje=mensaje.decode('unicode_escape')#Lo traduce a ASCII
-        
-        
-        #lectura de los parámetros
-        EXI =float(mensaje.split('EXI=')[1].split('\r')[0])
-        EXA =float(mensaje.split('EXA=')[1].split('\r')[0])
-        EXP =float(mensaje.split('EXP=')[1].split('\r')[0])
-        NOI =float(mensaje.split('NOI=')[1].split('\r')[0])
-        AVB =float(mensaje.split('AVB=')[1].split('\r')[0])
-        GNG =float(mensaje.split('GNG=')[1].split('\r')[0])
-        GNR =float(mensaje.split('GNR=')[1].split('\r')[0])
-        GNB =float(mensaje.split('GNB=')[1].split('\r')[0])
-        GN2 =float(mensaje.split('GN2=')[1].split('\r')[0])
-        CCG =float(mensaje.split('CCG=')[1].split('\r')[0])
-        CCR =float(mensaje.split('CCR=')[1].split('\r')[0])
-        CCB =float(mensaje.split('CCB=')[1].split('\r')[0])
-        CC2 =float(mensaje.split('CC2=')[1].split('\r')[0])
-        LXR =float(mensaje.split('LXR=')[1].split('\r')[0])
-        
-        EXIs.append(EXI)
-        EXAs.append(EXA)
-        EXPs.append(EXP)
-        NOIs.append(NOI)
-        AVBs.append(AVB)
-        GNGs.append(GNG)
-        GNRs.append(GNR)
-        GNBs.append(GNB)
-        GN2s.append(GN2)
-        CCGs.append(CCG)
-        CCRs.append(CCR)
-        CCBs.append(CCB)
-        CC2s.append(CC2)
-        LXRs.append(LXR)
-        
-        data=cv2.imread(imagen)
-        imagen_gamma=adjust_gamma(data)
-        data_hsv = cv2.cvtColor(imagen_gamma, cv2.COLOR_BGR2HSV)
-        v = data_hsv[:,:,2]
-        HSV_value = (np.mean(v[:])/255)#En matlab es sobre 1 y en python sobre 255
-        
-        B=data[:,:,0]
-        G=data[:,:,1]
-        R=data[:,:,2]
-        
-        B_gamma=adjust_gamma(B)
-        G_gamma=adjust_gamma(G)
-        R_gamma=adjust_gamma(R)
-        
-        B_val=np.mean(np.mean(B_gamma))
-        G_val=np.mean(np.mean(G_gamma))
-        R_val=np.mean(np.mean(R_gamma))
-        
-        RGB_mean=(R_val+G_val+B_val)/3
-        
-        #Valor piranómetro
-        f = open ((dir+ 'meteo'+ date_fichero+'.txt'),mode='rb')
-        
-        mensaje=f.read() ##lee el archivo entero
-        mensaje=mensaje.decode('unicode_escape')#Lo traduce a ASCII  
-        pir =float(mensaje.split(date)[1].split('\t')[4].split('\t')[0])
-        #print('AQUI',pir)
-        
-        valores_piranometro.append(pir)
-        #print(HSV_value, G,R,B, RGB_mean)
-        valor_comp=HSV_value/(GN2*EXP)
-        valores_comp.append(valor_comp)
-        
-        #Con LXR
-        valor=HSV_value/(GN2*EXP)/LXR*10000000000
-        valores.append(valor)
-        valor_G=G_val/(GNG*EXP)/LXR*100000000
-        valores_G.append(valor_G)
-        valor_R=R_val/(GNR*EXP)/LXR*100000000
-        valores_R.append(valor_R)
-        valor_B=B_val/(GNB*EXP)/LXR*100000000
-        valores_B.append(valor_B)
-        valor_RGB=RGB_mean/(GN2*EXP)/LXR*10000000000
-        valores_RGB.append(valor_RGB)
-        
-        #Con piranómetro
-        valor_pir=HSV_value/(GN2*EXP)/pir*10000000000
-        valores_pir.append(valor_pir)
-        valor_G_pir=G_val/(GNG*EXP)/pir*100000000
-        valores_G_pir.append(valor_G_pir)
-        valor_R_pir=R_val/(GNR*EXP)/pir*100000000
-        valores_R_pir.append(valor_R_pir)
-        valor_B_pir=B_val/(GNB*EXP)/pir*100000000
-        valores_B_pir.append(valor_B_pir)
-        valor_RGB_pir=RGB_mean/(GN2*EXP)/pir*10000000000
-        valores_RGB_pir.append(valor_RGB_pir)
-        
-        
-        #print(imagen,valor,valor_G,valor_R,valor_B,valor_RGB)
-        
-        f.close()
-        cv2.destroyAllWindows()
-        
-    #datos = {'nombre':dates,'valor':valores,'valor_G':valores_G,'valor_R':valores_R,'valor_B':valores_B,'valor_RGB':valores_RGB,
-             'EXI':EXIs,'EXA':EXAs,'EXP':EXPs,'NOI':NOIs,'AVB':AVBs,'GNG':GNGs,'GNR':GNRs,'GNB':GNBs,'GN2':GN2s,
-             'CCG':CCGs, 'CCR':CCRs,'CCB':CCBs,'CC2':CC2s, 'LXR':LXRs}
+def lectura_parametros_imagenes(imagen_str):
+    #Lectura parámetros imágenes
+    f = open (imagen_str,mode='rb')
+    mensaje=f.read(1434) ##lee hasta los parámetros de los sensores
+    mensaje=mensaje.decode('unicode_escape')#Lo traduce a ASCII
     
-    datos = {'nombre':dates_formato,'valor':valores,'valor_G':valores_G,'valor_R':valores_R,'valor_B':valores_B,'valor_RGB':valores_RGB,
-             'valor_pir':valores_pir,'valor_G_pir':valores_G_pir,'valor_R_pir':valores_R_pir,'valor_B_pir':valores_B_pir,'valor_RGB_pir':valores_RGB_pir,
-             'valores_comp':valores_comp,'LXR':LXRs,'pir':valores_piranometro,'GN2':GN2s}
-    df = pd.DataFrame(datos)
-    print(df)
-    df.to_excel('valores_parametros23.xlsx')
-'''
+    
+    #lectura de los parámetros
+    #EXI =float(mensaje.split('EXI=')[1].split('\r')[0])
+    #EXA =float(mensaje.split('EXA=')[1].split('\r')[0])
+    EXP =float(mensaje.split('EXP=')[1].split('\r')[0])
+    #NOI =float(mensaje.split('NOI=')[1].split('\r')[0])
+    #AVB =float(mensaje.split('AVB=')[1].split('\r')[0])
+    GNG =float(mensaje.split('GNG=')[1].split('\r')[0])
+    GNR =float(mensaje.split('GNR=')[1].split('\r')[0])
+    GNB =float(mensaje.split('GNB=')[1].split('\r')[0])
+    GN2 =float(mensaje.split('GN2=')[1].split('\r')[0])
+    #CCG =float(mensaje.split('CCG=')[1].split('\r')[0])
+    #CCR =float(mensaje.split('CCR=')[1].split('\r')[0])
+    #CCB =float(mensaje.split('CCB=')[1].split('\r')[0])
+    #CC2 =float(mensaje.split('CC2=')[1].split('\r')[0])
+    #LXR =float(mensaje.split('LXR=')[1].split('\r')[0])
+    #Cierre del fichero
+    f.close()
+    
+    return EXP,GNG,GNR,GNB,GN2
+
+def calculo_radiacion(imagen_str,mascara):
+    
+    EXP,GNG,GNR,GNB,GN2=lectura_parametros_imagenes(imagen_str)
+    cte_unidades=1e6
+    #sensibilidad=3.8e-5 #Relación ganancia global con los valores medios de cada canal 
+    sensibilidad=-7e-5
+    
+    data=cv2.imread(mascara)
+    #Descomposición de la imagen en RGB
+    B=data[:,:,0]
+    G=data[:,:,1]
+    R=data[:,:,2]
+    '''
+        
+    B_gamma=adjust_gamma(B)
+    G_gamma=adjust_gamma(G)
+    R_gamma=adjust_gamma(R)
+    #print(B_gamma)
+    '''
+#
+    B_val=((np.mean(B))/(GNB*EXP))*(1+sensibilidad*GNB)*cte_unidades
+    G_val=((np.mean(G))/(GNG*EXP))*(1+sensibilidad*GNG)*cte_unidades
+    R_val=((np.mean(R))/(GNR*EXP))*(1+sensibilidad*GNR)*cte_unidades
+    '''
+    B_gammas.append(np.mean(B))
+    R_gammas.append(np.mean(R))
+    G_gammas.append(np.mean(G))
+    '''
+    ##ÑADIR PESOS EN CÁLCULO RADIANCIA    
+    RGB_mean=(R_val+G_val+B_val)/3
+    return RGB_mean
+
+def lectura_valor_piranometro(date_formato,date_fichero):
+    #Apertura del archivo
+    f = open (('meteo'+ date_fichero+'.txt'),mode='rb')
+        
+    mensaje=f.read() ##lee el archivo entero
+    mensaje=mensaje.decode('unicode_escape')#Lo traduce a ASCII  
+    pir =float(mensaje.split(date_formato)[1].split('\t')[4].split('\t')[0])
+    #Cierre del archivo
+    f.close()
+    return pir
