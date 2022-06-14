@@ -6,9 +6,8 @@ Created on Sat May 14 10:13:18 2022
 """
 
 import cv2
-#import matplotlib.pyplot as plt
 import numpy as np
-#import math
+import math
 from datetime import datetime as dt
 from datetime import date
 import pvlib as pv
@@ -19,12 +18,8 @@ import scipy.io as mat
 factor_escala=0.25
 
 
-def obtencion_imagenesYfechas(nombre='2022-06-01_18_12'):
-    '''
-    print('Fecha o nombre imagen a analizar')
-    nombre=input()
-    '''
-    #nombre='2022-05-27'
+def obtencion_imagenesYfechas(nombre='2022-06-12'):#Resultados_2022-06-02
+    
     dir= 'D:/Software/Anaconda/Proyectos/'
     imagenes_str=glob.glob(dir + nombre+'*.jpg')#selección imágenes
 
@@ -33,7 +28,7 @@ def obtencion_imagenesYfechas(nombre='2022-06-01_18_12'):
     dates_formato=[]
     for imagen_str in imagenes_str:
         #Obtención de las fechas desde el nombre de la imagen
-        fecha = dt.strptime(imagen_str.split('\\')[1].split('.')[0], '%Y-%m-%d_%H_%M_%S')
+        fecha = dt.strptime(imagen_str.split('\\')[1].split('.')[0], '%Y-%m-%d_%H_%M_%S')#Resultados_
         #Se convierten las fechas a los dos formatos que serán necesarios
         date_formato=fecha.strftime('%Y/%m/%d %H:%M')
         date_fichero=fecha.strftime('%Y_%m_%d')
@@ -44,11 +39,15 @@ def obtencion_imagenesYfechas(nombre='2022-06-01_18_12'):
     return imagenes_str,dates, dates_formato,dates_fichero
 
 
-def obtencion_angulos (date, posicion):
+def obtencion_angulos (date, posicion,flag_zenith_aparente=0):
     zenith = posicion.loc[date]['zenith']
     azimuth = posicion.loc[date]['azimuth']
+    zenith_aparente = posicion.loc[date]['apparent_zenith']
     azimuth=azimuth+22.5#Se añade el offset de colocación de la cámara
-    return zenith,azimuth #EN GRADOS
+    if flag_zenith_aparente==1:
+        return zenith,azimuth,zenith_aparente#EN GRADOS
+    else:
+        return zenith,azimuth #EN GRADOS
 
 def reescalado(imagen, factor_escala=0):
     #reescalar imagen. Recibe imagen en formato foto
@@ -63,10 +62,11 @@ def centro_imagen(imagen):
     Y, X, canales = imagen.shape #alto,ancho,canales
     centro = (round(X/2), round(Y/2))
     return centro
-
+'''
 def centro_plano(imagen):
     centro = (355, 377)
-    return centro    
+    return centro 
+'''   
 
 def world2image(angulo_cenital_deg,azimuth,centro=(1440*factor_escala,1440*factor_escala)):
     
@@ -134,7 +134,6 @@ def centroide_sol(imagen):
             return 0.0,1
     else: #No se ha detectado el sol
         return 0.0,1
-    print('c: ',c)
     #Se asume que si hay una circularidad alta sí que se ha detectado el Sol de forma clara
     #print(c)
     if c>0.4:
@@ -151,8 +150,6 @@ def centroide_sol(imagen):
         centroide = (int(momentos['m10']/momentos['m00']), int(momentos['m01']/momentos['m00']))#(cx,cy)
     else: #No se ha detectado el sol
         return 0.0,1
-    #centroide[0]=centroide[0]*factor_escala
-    #centroide[1]=centroide[1]*factor_escala
     return centroide,sol_cubierto
 '''
 def almacena_centroide():
@@ -162,8 +159,6 @@ def almacena_centroide():
 def quitar_pixeles_saturados(imagen,centro_sol):
     
     #Recibe imagen en formato foto
-    ##Lo hace con el centroide pero si no detecta el sol pasarle la aproximación!!!!
-    ##centroide,sol_cubierto=centroide_sol(imagen)
     #Máscara para quitar los píxeles saturados alrededor del sol
     mascara_ang=mascara_angulos(imagen,2.5,7,centro_sol)
     
@@ -223,21 +218,12 @@ def mascara_sol(imagen,zenith,azimuth,centro_sol):
     radio_sol,px,py=world2image(2.5,azimuth)
     cv2.circle(imagen,centro_sol,round(radio_sol), (0, 0, 0), -1)
     return imagen   
-'''
-def adjust_gamma(image, gamma=1):
-    # build a lookup table mapping the pixel values [0, 255] to
-    # their adjusted gamma values
-    invGamma = 1.0 / gamma
-    table = np.array([((i / 255.0) ** invGamma) * 255
-        for i in np.arange(0, 256)]).astype("uint8")
-    # apply gamma correction using the lookup table
-    return cv2.LUT(image, table)
-'''
+
 def calculo_centro_nuevo_plano(imagen,angulo_ini=0,angulo_fin=90,inclinacion_zenith=0,inclinacion_azimuth=0):
     
     #TRANSFORMAR DE ANGULOS A COORD Y METER INCLINACION
     #Recibe imagen en formato foto
-    centro=centro_plano(imagen)
+    centro=centro_imagen(imagen)
     #Calcula el nuevo centro en función de la inclinación
     r,px,py=world2image(inclinacion_zenith,inclinacion_azimuth,centro)
     centro_inclinacion=(px,py)
@@ -269,64 +255,88 @@ def lectura_parametros_imagenes(imagen_str):
     
     
     #lectura de los parámetros
-    #EXI =float(mensaje.split('EXI=')[1].split('\r')[0])
-    #EXA =float(mensaje.split('EXA=')[1].split('\r')[0])
     EXP =float(mensaje.split('EXP=')[1].split('\r')[0])
-    #NOI =float(mensaje.split('NOI=')[1].split('\r')[0])
-    #AVB =float(mensaje.split('AVB=')[1].split('\r')[0])
     GNG =float(mensaje.split('GNG=')[1].split('\r')[0])
     GNR =float(mensaje.split('GNR=')[1].split('\r')[0])
     GNB =float(mensaje.split('GNB=')[1].split('\r')[0])
     GN2 =float(mensaje.split('GN2=')[1].split('\r')[0])
-    #CCG =float(mensaje.split('CCG=')[1].split('\r')[0])
-    #CCR =float(mensaje.split('CCR=')[1].split('\r')[0])
-    #CCB =float(mensaje.split('CCB=')[1].split('\r')[0])
-    #CC2 =float(mensaje.split('CC2=')[1].split('\r')[0])
-    #LXR =float(mensaje.split('LXR=')[1].split('\r')[0])
     #Cierre del fichero
     f.close()
     
+    
+    
     return EXP,GNG,GNR,GNB,GN2
 
-def calculo_radiacion(imagen_str,mascara):
+def calculo_radiacion(imagen_str,mascara, area_normalizada,contador_completo):
     
     EXP,GNG,GNR,GNB,GN2=lectura_parametros_imagenes(imagen_str)
     cte_unidades=1e6
-    #sensibilidad=3.8e-5 #Relación ganancia global con los valores medios de cada canal 
     sensibilidad=-7e-5
-    
+     
     data=cv2.imread(mascara)
     #Descomposición de la imagen en RGB
     B=data[:,:,0]
     G=data[:,:,1]
     R=data[:,:,2]
-    '''
+    
+    #Ajuste lineal con la ganancia
+    B_val=((media(B),contador_completo)/(GNB*EXP))*(1+sensibilidad*GNB)*cte_unidades
+    G_val=((media(G),contador_completo)/(GNG*EXP))*(1+sensibilidad*GNG)*cte_unidades
+    R_val=((media(R),contador_completo)/(GNR*EXP))*(1+sensibilidad*GNR)*cte_unidades
+    
         
-    B_gamma=adjust_gamma(B)
-    G_gamma=adjust_gamma(G)
-    R_gamma=adjust_gamma(R)
-    #print(B_gamma)
-    '''
-#
-    B_val=((np.mean(B))/(GNB*EXP))*(1+sensibilidad*GNB)*cte_unidades
-    G_val=((np.mean(G))/(GNG*EXP))*(1+sensibilidad*GNG)*cte_unidades
-    R_val=((np.mean(R))/(GNR*EXP))*(1+sensibilidad*GNR)*cte_unidades
-    '''
-    B_gammas.append(np.mean(B))
-    R_gammas.append(np.mean(R))
-    G_gammas.append(np.mean(G))
-    '''
-    ##ÑADIR PESOS EN CÁLCULO RADIANCIA    
-    RGB_mean=(R_val+G_val+B_val)/3
-    return RGB_mean
+    #RGB_mean=(R_val+G_val+B_val)/3
+    RGB_pesos=(R_val*0.514+G_val*0.484+B_val*0.002)/1#Pesos de cada canal de color
+    rad_fin=-1e-5*RGB_pesos**3+0.0063*RGB_pesos**2+0.4367*RGB_pesos#Ajuste polinómico de la calibración de intensidad
+    print(rad_fin)
+    rad_fin*=1/area_normalizada#Factor de ajuste al ángulo introducido por el usuario
+    print(rad_fin)
+    return rad_fin
 
 def lectura_valor_piranometro(date_formato,date_fichero):
     #Apertura del archivo
     f = open (('meteo'+ date_fichero+'.txt'),mode='rb')
-        
     mensaje=f.read() ##lee el archivo entero
     mensaje=mensaje.decode('unicode_escape')#Lo traduce a ASCII  
-    pir =float(mensaje.split(date_formato)[1].split('\t')[4].split('\t')[0])
+    pir_difusa=float(mensaje.split(date_formato)[1].split('\t')[4].split('\t')[0])#Valor del piranómetro de difusa
+    pir_41 =float(mensaje.split(date)[1].split('\t')[20].split('\t')[0])#Valor del piranómetro inclinado 41º en zenith y 180º en azimuth
+    pir_global=float(mensaje.split(date)[1].split('\t')[3].split('\t')[0])#Valor piranómetro global
+    pir_directa=float(mensaje.split(date)[1].split('\t')[2].split('\t')[0])#Valor piranómetro directa (pirheliómetro)
     #Cierre del archivo
     f.close()
-    return pir
+    return pir_difusa,pir_global,pir_directa,pir_41
+
+def calculo_difusa_modelos(date_formato,date_fichero,date,posicion,angulo_inclinacion,angulo_azimuth):
+    
+    
+    zenith,azimuth,zenith_aparente=obtencion_angulos(date, posicion,flag_zenith_aparente=1)
+    
+    #zeniths.append(zenith)
+    
+    pir_difusa,pir_global,pir_directa,pir_41=lectura_valor_piranometro(date_formato,date_fichero)
+    
+    dni_extra=pv.irradiance.get_extra_radiation(dt.strptime(date,'%Y/%m/%d %H:%M'), solar_constant=1366.1, method='spencer', epoch_year=2022)#, **kwargs)
+    
+    difusa_calculo=pir_global-pir_directa*math.cos(zenith*np.pi/180)#DHI=GHI-DNI*COS(zenith)->DHI_est
+    difusa_iso=pv.irradiance.isotropic(angulo_inclinacion,pir_difusa)#Ed_POA_iso
+    difusa_haydavie=pv.irradiance.haydavies(angulo_inclinacion, angulo_azimuth, pir_difusa, pir_directa, dni_extra, zenith_aparente, azimuth, projection_ratio=None)
+    difusa_reindl=pv.irradiance.reindl(angulo_inclinacion, angulo_azimuth,pir_difusa, pir_directa, pir_global, dni_extra, zenith_aparente, azimuth)
+    airmass=pv.atmosphere.get_relative_airmass(zenith)
+    difusa_perez=pv.irradiance.perez(angulo_inclinacion, angulo_azimuth, pir_difusa, pir_directa, dni_extra, zenith_aparente, azimuth, airmass, model='allsitescomposite1990', return_components=False)
+    
+    angulo_incidencia=pv.irradiance.aoi(angulo_inclinacion, angulo_azimuth, zenith,azimuth)
+    DHI_est_41=pir_41-pir_directa*math.cos(angulo_incidencia*np.pi/180)#DHI_41=GHI_41-DNI*COS(ANGULO INCIDENCIA)->DHI_est
+    return difusa_calculo,difusa_iso,difusa_haydavie,difusa_reindl,difusa_perez
+
+def media(matriz,contador_completo):
+      
+    media=0
+    #Media sin contar los pixeles negros
+    
+    for columna in range(len(matriz[0])):
+        for fila in range(len(matriz)):
+            media+=matriz[fila,columna]
+        
+    media/=contador_completo
+    
+    return media
