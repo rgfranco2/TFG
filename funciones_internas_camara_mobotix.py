@@ -17,8 +17,6 @@ import scipy.io as mat
 
 factor_escala = 0.25
 
-
-# Resultados_2022-06-02
 def obtencion_imagenesYfechas(nombre_imagen='2022-06-03_19_23'):
     '''
     Devuelve las imágenes encontrazas con el nombre o parte del nombre introducido, así como sus fechas de captura
