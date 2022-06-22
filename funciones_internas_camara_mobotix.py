@@ -17,6 +17,7 @@ import scipy.io as mat
 
 factor_escala = 0.25
 
+
 def obtencion_imagenesYfechas(nombre_imagen='2022-06-03_19_23'):
     '''
     Devuelve las imágenes encontrazas con el nombre o parte del nombre introducido, así como sus fechas de captura
@@ -45,9 +46,9 @@ def obtencion_imagenesYfechas(nombre_imagen='2022-06-03_19_23'):
     dates_fichero = []
     dates_formato = []
     for imagen_str in imagenes_str:
-        # Obtención de las fechas desde el nombre_imagen de la imagen
+        # Obtención de las fechas desde el nombre de la imagen
         fecha = dt.strptime(imagen_str.split('\\')[1].split('.')[
-                            0], '%Y-%m-%d_%H_%M_%S')  # Resultados_
+                            0], '%Y-%m-%d_%H_%M_%S')
         # Se convierten las fechas a los dos formatos que serán necesarios
         date_formato = fecha.strftime('%Y/%m/%d %H:%M')
         date_fichero = fecha.strftime('%Y_%m_%d')
@@ -80,13 +81,14 @@ def obtencion_angulos(date, posicion, FLAG_CENIT_APARENTE=False):
         Valor del cenit_aparente en grados.
 
     '''
-    cenit = posicion.loc[date]['cenit']
-    acimut = posicion.loc[date]['acimut']
-    cenit_aparente = posicion.loc[date]['apparent_cenit']
-    acimut = acimut+22.5  # Se añade el offset de colocación de la cámara
+    cenit = posicion.loc[date]['zenith']
+    acimut = posicion.loc[date]['azimuth']
+    cenit_aparente = posicion.loc[date]['apparent_zenith']
+    
     if FLAG_CENIT_APARENTE:
         return cenit, acimut, cenit_aparente  # EN GRADOS
     else:
+        acimut = acimut+22.5  # Se añade el offset de colocación de la cámara
         return cenit, acimut  # EN GRADOS
 
 
@@ -527,9 +529,9 @@ def calculo_radiacion(imagen_str, mascara, area_normalizada, contador_completo):
         1  # Pesos de cada canal de color
     rad_fin = -1e-5*RGB_pesos**3+0.0063*RGB_pesos**2+0.4367 * \
         RGB_pesos  # Ajuste polinómico de la calibración de intensidad
-    print('Antes normalizar', rad_fin)
     # Factor de ajuste al ángulo introducido por el usuario
-    rad_fin *= 1/area_normalizada
+    print('Antes normalizar',rad_fin)
+    rad_fin /=area_normalizada
 
     return rad_fin
 
@@ -566,7 +568,7 @@ def lectura_valor_piranometro(date_formato, date_fichero):
         '\t')[4].split('\t')[0])  # Valor del piranómetro de difusa
     # Valor del piranómetro inclinado 41º en cenit y 180º en acimut
     pir_41 = float(mensaje.split(date_formato)[
-                   1].split('\t')[20].split('\t')[0])
+                   1].split('\t')[19].split('\t')[0])
     pir_global = float(mensaje.split(date_formato)[1].split(
         '\t')[3].split('\t')[0])  # Valor piranómetro global
     pir_directa = float(mensaje.split(date_formato)[1].split('\t')[2].split('\t')[
@@ -607,8 +609,8 @@ def calculo_difusa_modelos(date_formato, date_fichero, date, posicion, angulo_in
         Valor de la irradiancia difusa según el modelo de Reindl.
     Ed_POA_perez: float
         Valor de la irradiancia difusa según el modelo de Pérez.
-    DHI_41: float
-        DHI estimada a 41º como: DHI_41=GHI_41-DNI*COS(ANGULO INCIDENCIA) 
+    D(41): float
+        Difusa estimada a 41º como: D(41)=G(41)-DNI*COS(ANGULO INCIDENCIA) 
 
     '''
     cenit, acimut, cenit_aparente = obtencion_angulos(
@@ -618,8 +620,8 @@ def calculo_difusa_modelos(date_formato, date_fichero, date, posicion, angulo_in
     dni_extra = pv.irradiance.get_extra_radiation(dt.strptime(
         date_formato, '%Y/%m/%d %H:%M'), solar_constant=1366.1, method='spencer', epoch_year=2022)  # , **kwargs)
 
-    # DHI=GHI-DNI*COS(cenit)->DHI_est
-    DHI = pir_global-pir_directa*math.cos(cenit*np.pi/180)
+    
+    DHI = pir_global-pir_directa*math.cos(cenit*np.pi/180)# DHI=GHI-DNI*COS(cenit)
     Ed_POA_iso = pv.irradiance.isotropic(
         angulo_inclinacion, pir_difusa)  # Ed_POA_iso
     Ed_POA_haydavie = pv.irradiance.haydavies(
@@ -629,12 +631,11 @@ def calculo_difusa_modelos(date_formato, date_fichero, date, posicion, angulo_in
     airmass = pv.atmosphere.get_relative_airmass(cenit)
     Ed_POA_perez = pv.irradiance.perez(angulo_inclinacion, angulo_acimut, pir_difusa, pir_directa,
                                        dni_extra, cenit_aparente, acimut, airmass, model='allsitescomposite1990', return_components=False)
-
+    
     angulo_incidencia = pv.irradiance.aoi(
         angulo_inclinacion, angulo_acimut, cenit, acimut)
-    # DHI_41=GHI_41-DNI*COS(ANGULO INCIDENCIA)->DHI_est
-    DHI_est_41 = pir_41-pir_directa*math.cos(angulo_incidencia*np.pi/180)
-    return DHI, Ed_POA_iso, Ed_POA_haydavie, Ed_POA_reindl, Ed_POA_perez, DHI_est_41
+    D_41 = pir_41-pir_directa*math.cos(angulo_incidencia*np.pi/180)# D(41)=G(41)-DNI*COS(ANGULO INCIDENCIA)
+    return DHI, Ed_POA_iso, Ed_POA_haydavie, Ed_POA_reindl, Ed_POA_perez, D_41,angulo_incidencia
 
 
 def establecer_factor_escala(factor_escala_nuevo):
