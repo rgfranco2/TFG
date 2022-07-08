@@ -9,18 +9,16 @@ import cv2
 import numpy as np
 import math
 from datetime import datetime as dt
-from datetime import date
 import pvlib as pv
-import pandas as pd
 import glob
-import scipy.io as mat
 
 factor_escala = 0.25
+direccion = 'D:/Software/Anaconda/Proyectos/'
+distancia_centro=1440
 
-
-def obtencion_imagenesYfechas(nombre_imagen='2022-06-03_19_23'):
+def obtencion_imagenesYfechas(nombre_imagen):
     '''
-    Devuelve las imágenes encontrazas con el nombre o parte del nombre introducido, así como sus fechas de captura
+    Devuelve las imágenes encontradas con el nombre o parte del nombre introducido, así como sus fechas de captura
 
     Parameters
     -------
@@ -39,8 +37,8 @@ def obtencion_imagenesYfechas(nombre_imagen='2022-06-03_19_23'):
         Fechas de las imágenes con el formato: '%Y_%m_%d'.
     '''
 
-    dir = 'D:/Software/Anaconda/Proyectos/'
-    imagenes_str = glob.glob(dir + nombre_imagen+'*.jpg')  # selección imágenes
+    #dir = 'D:/Software/Anaconda/Proyectos/'
+    imagenes_str = glob.glob(direccion + nombre_imagen+'*.jpg')  # selección imágenes
 
     dates = []
     dates_fichero = []
@@ -69,7 +67,7 @@ def obtencion_angulos(date, posicion, FLAG_CENIT_APARENTE=False):
     posicion: DataFrame
         Posición solar.
     FLAG_CENIT_APARENTE: bool
-        Indica si se devuelve eL cenit aparente o no.
+        Indica si se devuelve el cenit aparente o no.
 
     Returns
     -------
@@ -84,7 +82,6 @@ def obtencion_angulos(date, posicion, FLAG_CENIT_APARENTE=False):
     cenit = posicion.loc[date]['zenith']
     acimut = posicion.loc[date]['azimuth']
     cenit_aparente = posicion.loc[date]['apparent_zenith']
-    
     if FLAG_CENIT_APARENTE:
         return cenit, acimut, cenit_aparente  # EN GRADOS
     else:
@@ -118,6 +115,20 @@ def reescalado(imagen, factor_escala=0):
 
 
 def centro_imagen(imagen):
+    '''
+    Calcula el centro de la imagen
+
+    Parameters
+    -------
+    imagen: 3D array
+        Imagen que se está procesando.
+
+    Returns
+    -------
+    centro: tuple
+        Centro de la imagen.
+
+    '''
     # imagen=cv2.imread(imagen)
     Y, X, canales = imagen.shape  # alto,ancho,canales
     centro = (round(X/2), round(Y/2))
@@ -125,7 +136,7 @@ def centro_imagen(imagen):
     return centro
 
 
-def world2image(angulo_cenital_deg, acimut, centro=(1440*factor_escala, 1440*factor_escala)):
+def world2image(angulo_cenital_deg, acimut, centro=(distancia_centro*factor_escala, distancia_centro*factor_escala)):
     '''
     Calibración angular de la cámara.
 
@@ -135,7 +146,7 @@ def world2image(angulo_cenital_deg, acimut, centro=(1440*factor_escala, 1440*fac
         Ángulo cenital en grados.
     acimut: float
         Ángulo acimutal en grados.
-    centro: float
+    centro: tuple
         Centro de la imagen.
 
     Returns
@@ -146,16 +157,15 @@ def world2image(angulo_cenital_deg, acimut, centro=(1440*factor_escala, 1440*fac
         Número de píxeles en el eje x al que corresponden los ángulos recibidos como parámetros.
     py: float
         Número de píxeles en el eje y al que corresponden los ángulos recibidos como parámetros.
-
     '''
-
     # Cálculo del radio en función del ángulo introducido
-    r = -0.0013*angulo_cenital_deg**3+0.1323 * \
-        angulo_cenital_deg**2+15.412*angulo_cenital_deg
+    r = -0.0013*angulo_cenital_deg**3+0.1323 *angulo_cenital_deg**2+15.412*angulo_cenital_deg
     r = r*factor_escala
     # Cálculo de la distancia en cada eje desde el centro
     dx = r*np.sin((acimut+180)*np.pi/180)
     dy = r*np.cos((acimut+180)*np.pi/180)
+    if factor_escala!=0.25:
+       centro=(distancia_centro*factor_escala, distancia_centro*factor_escala) 
     # Cálculo de la distancia en cada eje desde el (0,0)
     px = round(centro[0]+dx)
     py = round(centro[1]+dy)
@@ -187,7 +197,6 @@ def dibujo_angulos(imagen_dibujo, cenit, acimut):
     centroide, sol_cubierto = centroide_sol(imagen_dibujo)
     # Cálculo coordenadas en la imagen de los ángulos
     r, px, py = world2image(cenit, acimut)
-
     if sol_cubierto == 0:  # Si detecta el Sol utiliza el centroide
         # Dibujo del acimut
         cv2.line(imagen_dibujo, centro, centroide, (255, 255, 0), 2)
@@ -199,7 +208,11 @@ def dibujo_angulos(imagen_dibujo, cenit, acimut):
         cv2.line(imagen_dibujo, centro, (px, py), (255, 255, 0), 2)
         # Dibujo del cenit
         cv2.circle(imagen_dibujo, centro, round(r), (255, 0, 0), 2)
-
+    '''    
+    cv2.imshow('imagen sin pixeles', imagen_dibujo)
+    cv2.waitKey(3000)
+    cv2.destroyAllWindows()
+    '''
     return imagen_dibujo
 
 
@@ -276,7 +289,7 @@ def quitar_pixeles_saturados(imagen, centro_sol):
     -------
     imagen: 3D array
         Imagen que se está procesando.
-    acentro_sol: tuple
+    centro_sol: tuple
         Centro solar en coordenadas de la imagen.
 
     Returns
@@ -302,7 +315,7 @@ def quitar_pixeles_saturados(imagen, centro_sol):
     B_cal = imagen_calculos[:, :, 0]
     I_calculo = np.array(B_cal/3 + G_cal/3 + R_cal/3, np.uint8)
 
-    # Cáculo I a sustituir en los pixeles saturados
+    # Cálculo I a sustituir en los pixeles saturados
     R_mas = imagen_mascara_angulos[:, :, 2]
     G_mas = imagen_mascara_angulos[:, :, 1]
     B_mas = imagen_mascara_angulos[:, :, 0]
@@ -339,6 +352,7 @@ def quitar_pixeles_saturados(imagen, centro_sol):
     # Sustituyo los valores en la imagen original
     for (fila_s, columna_s, valor_s) in zip(filas_sustituir, columnas_sustituir, valor_sustituir):
         imagen[fila_s, columna_s] = valor_s
+    
     return imagen
 
 
@@ -365,6 +379,7 @@ def mascara_sol(imagen, cenit, acimut, centro_sol):
     # Recibe imagen en formarto foto
     radio_sol, px, py = world2image(2.5, acimut)
     cv2.circle(imagen, centro_sol, round(radio_sol), (0, 0, 0), -1)
+    
     return imagen
 
 
@@ -446,6 +461,7 @@ def mascara_angulos(imagen, angulo_ini=0, angulo_fin=90, centroide=0, inclinacio
         r_fin), color=(255, 255, 255), thickness=-1)
     cv2.circle(imagen_mascara, centro_inclinacion,
                round(r_ini), color=(0, 0, 0), thickness=-1)
+    
     return imagen_mascara
 
 
@@ -561,7 +577,7 @@ def lectura_valor_piranometro(date_formato, date_fichero):
         Valor del piranómetro de global inclinado 41º.
     '''
     # Apertura del archivo
-    f = open(('meteo' + date_fichero+'.txt'), mode='rb')
+    f = open((direccion+'meteo' + date_fichero+'.txt'), mode='rb')
     mensaje = f.read()  # lee el archivo entero
     mensaje = mensaje.decode('unicode_escape')  # Lo traduce a ASCII
     pir_difusa = float(mensaje.split(date_formato)[1].split(

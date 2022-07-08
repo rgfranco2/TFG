@@ -5,16 +5,13 @@ Created on Thu May 26 13:17:13 2022
 @author: Raquel García Franco.
 """
 
-from datetime import datetime as dt
-from datetime import date
 import pvlib as pv
 import pandas as pd
 import cv2
 import glob
-import numpy as np
 import tkinter as tk
-from tkinter import messagebox, ttk
-from PIL import ImageTk, Image
+from tkinter import ttk
+from PIL import ImageTk
 import funciones_internas_camara_mobotix as ft
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
@@ -27,8 +24,10 @@ factor_escala = 0.25
 direccion = 'D:/Software/Anaconda/Proyectos/'
 # Imagenes por defecto
 nombre_imagenes = '2022-05-25_14'  # nombre por defecto de las imágenes a procesar
-tiempo_visualizacion = 3000  # ms
 
+tiempo_visualizacion = 3000  # ms
+#Distancia al centro de la imagen (cuadrada)
+distancia_centro=1440
 # El centroide debe calcularse con las imágenes sin modificar y ser accesible
 centroides = []
 sol_cubiertos = []
@@ -56,13 +55,12 @@ FLAG_OBLIGATORIO_GUARDAR_MASCARAS = False
 FLAG_MENU_VISUAL = True
 # El programa se lanza con unas imágenes por defecto
 FLAG_VALORES_POR_DEFECTO = True
-#Si el usuario elige calcular la radiación de toda la imagen aunque haya máscaras personalizadas, avisa a la función calculo_radiacion_difusa()
-FLAG_IMAGEN_COMPLETA=False
+# Si el usuario elige calcular la radiación de toda la imagen aunque haya máscaras personalizadas, avisa a la función calculo_radiacion_difusa()
+FLAG_IMAGEN_COMPLETA = False
 # Por defecto se elige el cielo completo y el módulo en horizontal
 AREA_NORMALIZADA = 1
 # Número de píxeles del sensor completo para un factor de escala de 0.25
 CONTADOR_COMPLETO = 437758
-
 
 
 def eleccion_imagenes():
@@ -100,27 +98,26 @@ def eleccion_imagenes():
     # Compruebo si el usuario ya tiene esa máscaras guardadas
     mascaras_solYpixeles = glob.glob(
         direccion+'mascaraYsolTapadoSinCirculo_'+nombre_imagenes+'*.jpg')
-    if len(imagenes_str)==0:#No existen las imágenes solicitadas por el usuario
+    if len(imagenes_str) == 0:  # No existen las imágenes solicitadas por el usuario
         print('NO HAY IMÁGENES CON ESAS FECHAS')
         eleccion_imagenes()
-    else: #Si sí hay imágenes, busca posibles máscaras
-    
+    else:  # Si sí hay imágenes, busca posibles máscaras
+
         if len(mascaras_solYpixeles) == 0:
             FLAG_MASCARAS_GUARDADAS = False  # Para estas nuevas imágenes no hay máscaras
             print('No hay máscaras con el Sol tapado y sin píxeles saturados')
-        elif len(mascaras_solYpixeles)==len(imagenes_str):
+        elif len(mascaras_solYpixeles) == len(imagenes_str):
             FLAG_MASCARAS_GUARDADAS = True  # Para estas nuevas imágenes sí hay máscaras
             print('Ya hay máscaras con el Sol tapado y sin píxeles saturados')
-        
+
         print('¿Quieres buscar máscaras personalizadas [s/n]?')
-        eleccion=input()
-        if eleccion=='s':
+        eleccion = input()
+        if eleccion == 's':
             eleccion_angulos_usuario()
             mascaras_usuario = glob.glob(direccion+'mascaraUsuario_'+angulo_inclinacion_str+'cenit' +
-                                          angulo_acimut_str+'acimut_'+angulo_ini_str+angulo_fin_str+'_'+nombre_imagenes+'*.jpg')
-            
-            
-            if len(mascaras_usuario)==len(imagenes_str):
+                                         angulo_acimut_str+'acimut_'+angulo_ini_str+angulo_fin_str+'_'+nombre_imagenes+'*.jpg')
+
+            if len(mascaras_usuario) == len(imagenes_str):
                 # Para estas nuevas imágenes sí hay máscaras
                 FLAG_MASCARAS_USUARIO_GUARDADAS = True
                 print('Ya hay máscaras de usuario guardadas')
@@ -230,7 +227,7 @@ def mascara_solYangulos():
     else:  # Para el cálculo de la radiación difusa es obligatorio, el usuario no tiene opción
         eleccion = 's'
     for imagen_str, date, centroide, sol_cubierto in zip(imagenes_str, dates, centroides, sol_cubiertos):
-        print('IMAGEN',imagen_str)
+        print('IMAGEN', imagen_str)
         # Obtención de los ángulos cenit y acimut para la fecha y posición actuales
         cenit, acimut = ft.obtencion_angulos(date, posicion)
         # imagen original en formato foto, no en formato string
@@ -270,8 +267,22 @@ def mascara_solYangulos():
         FLAG_MASCARAS_GUARDADAS = True  # Las máscaras se han guardado
     print('--Fin máscaras sol y píxeles--')
 
+
 def eleccion_angulos_usuario():
-    global  angulo_inclinacion, angulo_acimut, angulo_inclinacion_str, angulo_acimut_str, angulo_ini, angulo_fin, angulo_ini_str, angulo_fin_str
+    '''
+    Guarda los ángulos de inclinación y los radios iniciales y finales de la corona circular 
+    que el usuario quiere procesar.
+
+    Parameters
+    -------
+    None.
+
+    Returns
+    -------
+    None.
+
+    '''
+    global angulo_inclinacion, angulo_acimut, angulo_inclinacion_str, angulo_acimut_str, angulo_ini, angulo_fin, angulo_ini_str, angulo_fin_str
     # Pide los valores al usuario
     print('Introduce inclinación en cenit (grados)')
     angulo_inclinacion_str = input()
@@ -280,10 +291,10 @@ def eleccion_angulos_usuario():
     angulo_acimut_str = input()
     angulo_acimut = float(angulo_acimut_str)
     print('Introduce ángulo inicial (grados)')
-    angulo_ini_str=input()
+    angulo_ini_str = input()
     angulo_ini = float(angulo_ini)
     print('Introduce ángulo final (grados)')
-    angulo_fin_str=input()
+    angulo_fin_str = input()
     angulo_fin = float(angulo_fin_str)
     print('Parámetros introducidos correctamente')
 
@@ -311,8 +322,8 @@ def mascara_eleccion_usuario():
         direccion+'mascaraYsolTapadoSinCirculo_'+nombre_imagenes+'*.jpg')  # selección imágenes
     eleccion_angulos_usuario()
     # Se comprueba si ya existen máscaras de usuario para los parámetros introducidos
-    mascaras =glob.glob(direccion+'mascaraUsuario_'+angulo_inclinacion_str+'cenit' +
-                                  angulo_acimut_str+'acimut_'+angulo_ini_str+angulo_fin_str+'_'+nombre_imagenes+'*.jpg')
+    mascaras = glob.glob(direccion+'mascaraUsuario_'+angulo_inclinacion_str+'cenit' +
+                         angulo_acimut_str+'acimut_'+angulo_ini_str+angulo_fin_str+'_'+nombre_imagenes+'*.jpg')
     if len(mascaras) == 0:  # No hay máscaras
         print('¿Quieres guardar las imágenes?[s/n]')
         eleccion = input()
@@ -322,15 +333,21 @@ def mascara_eleccion_usuario():
     print('Mostrando máscaras')
     for imagen_mascara, imagen_str in zip(imagenes_mascaras, imagenes_str):
         # Máscara elección ángulos
-        # ángulo-ini,ángulo-fin,centroide,incl-cenit,incli-acimut
+        #Si no se está seguro, sobreescribir la mascara
+        #La escala debe ser la misma actualmente que cuando se generó la mascara
         imagen_mascara = cv2.imread(imagen_mascara)
+        #Desahace la escala en la que estuviera la máscara
+        centro_antiguo=ft.centro_imagen(imagen_mascara)
+        factor_antiguo=distancia_centro/centro_antiguo[0]
+        imagen_mascara=ft.reescalado(imagen_mascara,factor_antiguo)
+        imagen_mascara=ft.reescalado(imagen_mascara,factor_escala)#Imagen máscara en escala actual
+              
         mascara_ang = ft.mascara_angulos(
-            imagen_mascara, angulo_ini, angulo_fin, 0, angulo_inclinacion, angulo_acimut)
+            imagen_mascara, angulo_ini, angulo_fin, 0, angulo_inclinacion, angulo_acimut)# ángulo-ini,ángulo-fin,centroide,incl-cenit,incli-acimut
         imagen_mascara_angulos = cv2.bitwise_and(
             imagen_mascara, imagen_mascara, mask=mascara_ang)
-        
         cv2.imshow('Mascara angular aplicada',  mascara_ang)
-        cv2.waitKey(2000)
+        cv2.waitKey(tiempo_visualizacion)
         cv2.imshow('Mascara_usuario', imagen_mascara_angulos)
         cv2.waitKey(tiempo_visualizacion)
         if eleccion == 's':
@@ -350,7 +367,7 @@ def mascara_eleccion_usuario():
 def almacenar_centroide():
     '''
     Calcula el controide del contorno solar para cada imagen seleccionada.
-    También almacena la variable sol_cubierto, que permite saber si el Sol está cubierto, por nubes u otros elementos, o no
+    También almacena la variable sol_cubierto, que permite saber si el Sol está cubierto, por nubes u otros elementos, o no.
 
     Parameters
     -------
@@ -431,9 +448,9 @@ def cambiar_tamaño_imagenes():
 
     # Cambio del factor de escala para las funciones internas
     ft.establecer_factor_escala(factor_escala)
-    #Los centroides se han modificado
+    # Los centroides se han modificado
     almacenar_centroide()
-    print('--Fin del cambio del factor de escala, valor: ', factor_escala,'--')
+    print('--Fin del cambio del factor de escala, valor: ', factor_escala, '--')
 
 
 def calculo_radiacion_difusa():
@@ -470,7 +487,7 @@ def calculo_radiacion_difusa():
     Ed_POA_reindls = []
     Ed_POA_perezs = []
     D_41s = []
-    AOI_s=[]
+    AOI_s = []
 
     # Añadir elección de máscaras
     if FLAG_MASCARAS_GUARDADAS and FLAG_MASCARAS_USUARIO_GUARDADAS:
@@ -478,30 +495,32 @@ def calculo_radiacion_difusa():
         print('¿Quieres las máscaras generales o las personalizadas?[g/p]')
         eleccion = input()
         if eleccion == 'p':
-            mascaras =glob.glob(direccion+'mascaraUsuario_'+angulo_inclinacion_str+'cenit' +
-                                          angulo_acimut_str+'acimut_'+angulo_ini_str+angulo_fin_str+'_'+nombre_imagenes+'*.jpg')  # selección imágenes
-            print('Mascaras encontradas',mascaras)
-            FLAG_IMAGEN_COMPLETA=False #Se va a utilizar la máscara personalizada, no la completa
+            mascaras = glob.glob(direccion+'mascaraUsuario_'+angulo_inclinacion_str+'cenit' +
+                                 angulo_acimut_str+'acimut_'+angulo_ini_str+angulo_fin_str+'_'+nombre_imagenes+'*.jpg')  # selección imágenes
+            print('Mascaras encontradas', mascaras)
+            # Se va a utilizar la máscara personalizada, no la completa
+            FLAG_IMAGEN_COMPLETA = False
         else:  # Si el usuario eleige otra letra cualquiera se utilizarán las globales
             mascaras = glob.glob(direccion+'mascaraYsolTapadoSinCirculo_' +
                                  nombre_imagenes+'*.jpg')  # selección imágenes
-            print('Mascaras encontradas',mascaras)
-            FLAG_IMAGEN_COMPLETA=True #Se va a utilizar la imagen completa
+            print('Mascaras encontradas', mascaras)
+            FLAG_IMAGEN_COMPLETA = True  # Se va a utilizar la imagen completa
     # Si no hay ningunas se generan las globales
     elif FLAG_MASCARAS_GUARDADAS == False and FLAG_MASCARAS_USUARIO_GUARDADAS == False:
         print('Se van a guardar primero las máscaras sin Sol y sin pixeles saturados')
         mascara_solYangulos()
         mascaras = glob.glob(direccion+'mascaraYsolTapadoSinCirculo_' +
                              nombre_imagenes+'*.jpg')  # selección imágenes
-        FLAG_IMAGEN_COMPLETA=True #Se va a utilizar la imagen completa
+        FLAG_IMAGEN_COMPLETA = True  # Se va a utilizar la imagen completa
     elif FLAG_MASCARAS_GUARDADAS:  # Solo están las globales
         mascaras = glob.glob(direccion+'mascaraYsolTapadoSinCirculo_' +
                              nombre_imagenes+'*.jpg')  # selección imágenes
-        FLAG_IMAGEN_COMPLETA=True #Se va a utilizar la imagen completa
+        FLAG_IMAGEN_COMPLETA = True  # Se va a utilizar la imagen completa
     else:  # Solo están las personalizadas
-        mascaras =glob.glob(direccion+'mascaraUsuario_'+angulo_inclinacion_str+'cenit' +
-                                      angulo_acimut_str+'acimut_'+angulo_ini_str+angulo_fin_str+'_'+nombre_imagenes+'*.jpg')  # selección imágenes
-        FLAG_IMAGEN_COMPLETA=False #Se va a utilizar la máscara personalizada, no la completa
+        mascaras = glob.glob(direccion+'mascaraUsuario_'+angulo_inclinacion_str+'cenit' +
+                             angulo_acimut_str+'acimut_'+angulo_ini_str+angulo_fin_str+'_'+nombre_imagenes+'*.jpg')  # selección imágenes
+        # Se va a utilizar la máscara personalizada, no la completa
+        FLAG_IMAGEN_COMPLETA = False
     # Se recalculan los contadores por si se ha cambiado el reescalado o los ángulos del usuario
     cambio_contadores()
     for (imagen_str, mascara, date_fichero, date_formato, date) in zip(imagenes_str, mascaras, dates_fichero, dates_formato, dates):
@@ -518,7 +537,7 @@ def calculo_radiacion_difusa():
             imagen_str, mascara, AREA_NORMALIZADA, CONTADOR_COMPLETO)  # energia/superficie
         irradiancia_final.append(irradiancia)
         # Cálculo de los modelos de radiación difusa
-        DHI, Ed_POA_iso, Ed_POA_haydavie, Ed_POA_reindl, Ed_POA_perez,D_41,AOI = ft.calculo_difusa_modelos(
+        DHI, Ed_POA_iso, Ed_POA_haydavie, Ed_POA_reindl, Ed_POA_perez, D_41, AOI = ft.calculo_difusa_modelos(
             date_formato, date_fichero, date, posicion, angulo_inclinacion, angulo_acimut)
         # Introducción del valor en los vectores
         DHIs.append(DHI)
@@ -540,17 +559,19 @@ def calculo_radiacion_difusa():
         print(date_formato, 'Irradiancia difusa estimada', irradiancia)
 
     cv2.destroyAllWindows()
-    print(len(dates),len(GNBs),len(irradiancia_final))
+    print(len(dates), len(GNBs), len(irradiancia_final))
     datos = {'nombre_imagenes': dates, 'pir_difusa': pir_difusas, 'pir_global': pir_globales, 'pir_directa': pir_directas,
              'GN2': GN2s, 'EXP': EXPs, 'GNG': GNGs, 'GNR': GNRs, 'GNB': GNBs,
              'irradiancia final': irradiancia_final, 'pir_41_grados': pir_globales_41, 'calculo_difusa_0_grados': DHIs,
              'difusa mod_isotropico': Ed_POA_isos, 'difusa mod_havdavies': difusa_havdavies, 'difusa mod_reindl': Ed_POA_reindls,
-             'difusa mod_perez': Ed_POA_perezs, 'D(41)': D_41s,'AOI':AOI_s}
+             'difusa mod_perez': Ed_POA_perezs, 'D(41)': D_41s, 'AOI': AOI_s}
 
     df = pd.DataFrame(datos)
     print(df)
-    df.to_excel('valores_parametros_Completa'+str(FLAG_IMAGEN_COMPLETA)+'_'+nombre_imagenes+'_.xlsx')
-    print('Generado archivo:', 'valores_parametros_Completa'+str(FLAG_IMAGEN_COMPLETA)+'_'+nombre_imagenes+'_.xlsx')
+    df.to_excel('valores_parametros_Completa' +
+                str(FLAG_IMAGEN_COMPLETA)+'_'+nombre_imagenes+'_.xlsx')
+    print('Generado archivo:', 'valores_parametros_Completa' +
+          str(FLAG_IMAGEN_COMPLETA)+'_'+nombre_imagenes+'_.xlsx')
     # Ya no es obligatorio tener las máscaras generadas
     FLAG_OBLIGATORIO_GUARDAR_MASCARAS = False
     print('--Fin cálculo radiación difusa--')
@@ -579,7 +600,6 @@ def eleccion_tiempo_visualizacion():
 
 
 def cambio_contadores():
-
     '''
     Calcula el área normalizada, en función de los ángulos elegidos por el usuario, para 
     un correcto cálculo de la irradiancia difusa.
@@ -594,12 +614,14 @@ def cambio_contadores():
     '''
     global AREA_NORMALIZADA
     # El contador de ángulos depende del ángulo elegido por el usuario en la máscara personalizada
-    imagen_mascara = cv2.imread("2022-05-25_15_39_25.694.jpg")
+    imagen_mascara = cv2.imread(imagenes_str[0])
+    #Los cálculos se hacen con factor_escala=0.25 para no volver a calcular cada vez el contador completo
     imagen_mascara = ft.reescalado(imagen_mascara, 0.25)
-    print(FLAG_IMAGEN_COMPLETA)
+    ft.establecer_factor_escala(0.25)
+    
     if FLAG_IMAGEN_COMPLETA:
-        angulo_inclinacion_completa=0
-        angulo_acimut_completa=0
+        angulo_inclinacion_completa = 0
+        angulo_acimut_completa = 0
         mascara_ang = ft.mascara_angulos(
             imagen_mascara, angulo_ini, angulo_fin, 0, angulo_inclinacion_completa, angulo_acimut_completa)
     else:
@@ -607,15 +629,17 @@ def cambio_contadores():
             imagen_mascara, angulo_ini, angulo_fin, 0, angulo_inclinacion, angulo_acimut)
     # Muestra la máscara aplicada para contar los píxeles evaluados
     cv2.imshow('FotoMascara',  mascara_ang)
-    cv2.waitKey(2000)
+    cv2.waitKey(tiempo_visualizacion)
     contador_ang = 0
+    
     # Cuento los píxeles blancos de la mascara
     for columna in range(len(mascara_ang[0])):
         for fila in range(len(mascara_ang)):
             if mascara_ang[fila, columna] != 0:
                 contador_ang += 1
     AREA_NORMALIZADA = contador_ang/CONTADOR_COMPLETO
-    print(contador_ang,AREA_NORMALIZADA)
+    #Se reestablece el factor de escala al valor seleccionado por el usuario
+    ft.establecer_factor_escala(factor_escala)
 
 
 def print_estado_parametros_globales():
@@ -635,7 +659,8 @@ def print_estado_parametros_globales():
     print('Fechas analizadas:')
     for imagen_str in imagenes_str:
         print(imagen_str.split('\\')[1].split('.')[0])
-    print('Máscaras almacenadas del Sol y sin píxeles saturados:', FLAG_MASCARAS_GUARDADAS)
+    print('Máscaras almacenadas del Sol y sin píxeles saturados:',
+          FLAG_MASCARAS_GUARDADAS)
     print('Máscaras almacenadas personalizadas por el usuario:',
           FLAG_MASCARAS_USUARIO_GUARDADAS)
     print('Tiempo de visualización actual:', tiempo_visualizacion, 'ms')
@@ -648,7 +673,7 @@ def print_estado_parametros_globales():
 
 # Inicio programa con valores por defecto
 eleccion_imagenes()
-print('Las imágenes por defecto son',imagenes_str)
+print('Las imágenes por defecto son', imagenes_str)
 # A partir de ahora el usuario elegirá los valores
 FLAG_VALORES_POR_DEFECTO = False
 
